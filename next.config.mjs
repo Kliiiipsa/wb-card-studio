@@ -5,9 +5,7 @@ const nextConfig = {
   // environment; skip lint during build (run `npm run lint` separately if needed).
   eslint: { ignoreDuringBuilds: true },
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "**" },
-    ],
+    remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
 };
 

@@ -13,8 +13,7 @@ export class QwenLLMProvider implements LLMProvider {
 
   private apiKey = process.env.QWEN_API_KEY ?? "";
   private baseUrl =
-    process.env.QWEN_BASE_URL ??
-    "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+    process.env.QWEN_BASE_URL ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
   private textModel = process.env.QWEN_TEXT_MODEL ?? "qwen-plus";
   private visionModel = process.env.QWEN_VISION_MODEL ?? "qwen-vl-max";
 

@@ -20,8 +20,7 @@ export class YandexLLMProvider implements LLMProvider {
   private apiKey = process.env.YANDEX_API_KEY ?? "";
   private folderId = process.env.YANDEX_FOLDER_ID ?? "b1g2kv9g5q3fstk360sa";
   private model = process.env.YANDEX_LLM_MODEL ?? "qwen3.6-35b-a3b";
-  private baseUrl =
-    process.env.YANDEX_BASE_URL ?? "https://ai.api.cloud.yandex.net/v1";
+  private baseUrl = process.env.YANDEX_BASE_URL ?? "https://ai.api.cloud.yandex.net/v1";
 
   async complete(req: LLMRequest): Promise<LLMResult> {
     if (!this.apiKey) {

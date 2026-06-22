@@ -2,6 +2,7 @@ import { fail } from "@/lib/api";
 import { AppError } from "@/lib/errors";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * Same-origin proxy for remote generated images so the export <canvas> isn't

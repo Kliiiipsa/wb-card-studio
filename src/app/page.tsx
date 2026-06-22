@@ -16,12 +16,36 @@ import { Badge } from "@/components/ui/badge";
 import { CARD_TYPES } from "@/core/domain/card-types";
 
 const FEATURES = [
-  { icon: Wand2, title: "Генерация по промпту", text: "Text-to-image карточки с премиальным визуалом за минуты." },
-  { icon: ScanSearch, title: "Анализ карточки", text: "ИИ оценивает текущую карточку и находит, что мешает продажам." },
-  { icon: Lightbulb, title: "Идеи для улучшения", text: "5–10 идей карточек под вашу категорию и аудиторию." },
-  { icon: ImageIcon, title: "Image-to-image", text: "Загрузите фото товара — получите дорогую карточку, товар сохраняется." },
-  { icon: LayoutTemplate, title: "Шаблоны под WB", text: "12 типов карточек и 11 премиальных стилей из коробки." },
-  { icon: Download, title: "Экспорт под размер", text: "900×1200, 1200×1600, 3:4, 4:5 — PNG и JPG в один клик." },
+  {
+    icon: Wand2,
+    title: "Генерация по промпту",
+    text: "Text-to-image карточки с премиальным визуалом за минуты.",
+  },
+  {
+    icon: ScanSearch,
+    title: "Анализ карточки",
+    text: "ИИ оценивает текущую карточку и находит, что мешает продажам.",
+  },
+  {
+    icon: Lightbulb,
+    title: "Идеи для улучшения",
+    text: "5–10 идей карточек под вашу категорию и аудиторию.",
+  },
+  {
+    icon: ImageIcon,
+    title: "Image-to-image",
+    text: "Загрузите фото товара — получите дорогую карточку, товар сохраняется.",
+  },
+  {
+    icon: LayoutTemplate,
+    title: "Шаблоны под WB",
+    text: "12 типов карточек и 11 премиальных стилей из коробки.",
+  },
+  {
+    icon: Download,
+    title: "Экспорт под размер",
+    text: "900×1200, 1200×1600, 3:4, 4:5 — PNG и JPG в один клик.",
+  },
 ];
 
 const STEPS = [
@@ -59,8 +83,8 @@ export default function LandingPage() {
           AI-студия контента для маркетплейсов
         </Badge>
         <h1 className="max-w-4xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-          Создавайте премиальные карточки для{" "}
-          <span className="text-gradient">Wildberries</span> с помощью ИИ
+          Создавайте премиальные карточки для <span className="text-gradient">Wildberries</span> с
+          помощью ИИ
         </h1>
         <p className="mt-5 max-w-2xl text-lg text-muted-foreground">
           Анализируйте товар, получайте идеи и генерируйте продающую инфографику за минуты.
@@ -79,14 +103,17 @@ export default function LandingPage() {
 
         {/* Hero preview strip */}
         <div className="mt-16 grid w-full max-w-5xl grid-cols-2 gap-4 sm:grid-cols-4">
-          {["from-violet-500 to-indigo-600", "from-slate-800 to-slate-950", "from-emerald-500 to-teal-700", "from-blue-500 to-indigo-700"].map(
-            (g, i) => (
-              <div
-                key={i}
-                className={`aspect-[3/4] rounded-2xl bg-gradient-to-br ${g} shadow-lg ring-1 ring-black/5`}
-              />
-            ),
-          )}
+          {[
+            "from-violet-500 to-indigo-600",
+            "from-slate-800 to-slate-950",
+            "from-emerald-500 to-teal-700",
+            "from-blue-500 to-indigo-700",
+          ].map((g, i) => (
+            <div
+              key={i}
+              className={`aspect-[3/4] rounded-2xl bg-gradient-to-br ${g} shadow-lg ring-1 ring-black/5`}
+            />
+          ))}
         </div>
       </section>
 
@@ -141,7 +168,9 @@ export default function LandingPage() {
             ];
             return (
               <div key={t.id} className="overflow-hidden rounded-xl border">
-                <div className={`flex aspect-[3/4] items-end bg-gradient-to-br ${palettes[i % palettes.length]} p-3`}>
+                <div
+                  className={`flex aspect-[3/4] items-end bg-gradient-to-br ${palettes[i % palettes.length]} p-3`}
+                >
                   <span className="text-xs font-medium text-white">{t.title}</span>
                 </div>
               </div>

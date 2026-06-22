@@ -1,13 +1,7 @@
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
-export function AppShell({
-  title,
-  children,
-}: {
-  title?: string;
-  children: React.ReactNode;
-}) {
+export function AppShell({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen surface-gradient">
       <Sidebar />

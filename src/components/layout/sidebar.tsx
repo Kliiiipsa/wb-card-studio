@@ -1,17 +1,13 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Wand2,
-  ScanSearch,
-  Gem,
-} from "lucide-react";
+import { LayoutDashboard, Wand2, ScanSearch, LayoutGrid, Gem } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/dashboard", label: "Мои проекты", icon: LayoutDashboard },
   { href: "/generator", label: "Создать карточку", icon: Wand2 },
+  { href: "/infographics", label: "Инфографика", icon: LayoutGrid },
   { href: "/analysis", label: "Анализ и улучшение", icon: ScanSearch },
 ];
 

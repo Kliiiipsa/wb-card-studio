@@ -1,10 +1,4 @@
-import type {
-  ImageProvider,
-  T2IRequest,
-  I2IRequest,
-  ImageResult,
-  GeneratedImage,
-} from "../types";
+import type { ImageProvider, T2IRequest, I2IRequest, ImageResult, GeneratedImage } from "../types";
 
 /**
  * Offline image stand-in. Generates a deterministic premium-looking SVG mock

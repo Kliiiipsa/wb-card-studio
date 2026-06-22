@@ -13,9 +13,24 @@ import { listGenerations } from "@/core/storage/repository";
 import { toast } from "@/components/ui/toaster";
 
 const QUICK = [
-  { href: "/generator", icon: Wand2, title: "Создать карточку", desc: "Генерация по описанию или фото" },
-  { href: "/analysis", icon: ScanSearch, title: "Анализ и улучшение", desc: "Аудит карточки + улучшение ИИ" },
-  { href: "/generator?type=benefits", icon: LayoutTemplate, title: "Инфографика преимуществ", desc: "Карточка с выгодами товара" },
+  {
+    href: "/generator",
+    icon: Wand2,
+    title: "Создать карточку",
+    desc: "Генерация по описанию или фото",
+  },
+  {
+    href: "/analysis",
+    icon: ScanSearch,
+    title: "Анализ и улучшение",
+    desc: "Аудит карточки + улучшение ИИ",
+  },
+  {
+    href: "/generator?type=benefits",
+    icon: LayoutTemplate,
+    title: "Инфографика преимуществ",
+    desc: "Карточка с выгодами товара",
+  },
 ];
 
 export default function DashboardPage() {
@@ -33,7 +48,10 @@ export default function DashboardPage() {
       for (const p of projects) {
         // eslint-disable-next-line no-await-in-loop
         const gens = await listGenerations(p.id);
-        map[p.id] = { cover: gens[0]?.images[0]?.dataUrl ?? p.uploads[0]?.dataUrl, count: gens.length };
+        map[p.id] = {
+          cover: gens[0]?.images[0]?.dataUrl ?? p.uploads[0]?.dataUrl,
+          count: gens.length,
+        };
       }
       setCovers(map);
     })();

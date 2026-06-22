@@ -65,7 +65,9 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
   }
 }
 
@@ -77,8 +79,11 @@
     @apply bg-clip-text text-transparent bg-gradient-to-br from-primary via-indigo-500 to-blue-500;
   }
   .surface-gradient {
-    background:
-      radial-gradient(1200px 600px at 80% -10%, hsl(var(--primary) / 0.10), transparent 60%),
+    background: radial-gradient(
+        1200px 600px at 80% -10%,
+        hsl(var(--primary) / 0.1),
+        transparent 60%
+      ),
       radial-gradient(900px 500px at -10% 10%, hsl(217 91% 60% / 0.08), transparent 55%);
   }
   .no-scrollbar::-webkit-scrollbar {

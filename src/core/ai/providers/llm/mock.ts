@@ -1,6 +1,8 @@
 import type { LLMProvider, LLMRequest, LLMResult } from "../types";
 import { CARD_TYPE_MAP, CARD_TYPES, type CardTypeId } from "@/core/domain/card-types";
 import { STYLE_MAP, type StyleId } from "@/core/domain/styles";
+import { fallbackPrompt } from "@/core/prompting/prompt-composer";
+import type { PromptIntent } from "@/core/prompting/prompt-intent";
 
 /**
  * Deterministic, offline LLM stand-in. Produces realistic, schema-shaped JSON
@@ -22,6 +24,8 @@ export class MockLLMProvider implements LLMProvider {
         return { text: this.improvePrompt(ctx) };
       case "build-prompt":
         return json(this.buildPrompt(ctx));
+      case "write-prompt":
+        return json(fallbackPrompt((ctx.intent ?? {}) as PromptIntent));
       case "score":
         return json(this.score(ctx));
       case "translate":
@@ -171,14 +175,14 @@ export class MockLLMProvider implements LLMProvider {
       targetAudience: product.audience || "целевая аудитория категории",
       mainBenefit: benefit,
       visualStyle: `${style.visual}${userPrompt ? `, ${userPrompt}` : ""}`,
-      composition:
-        "product centered, large, balanced layout with enough empty space for text",
+      composition: "product centered, large, balanced layout with enough empty space for text",
       background: `${style.palette} background, subtle premium texture, no clutter`,
       lighting: style.lighting,
       typographyArea: "clean zone (top-left or bottom) reserved for headline and badges",
       colorPalette: style.palette,
       premiumDetails: "elegant lines, subtle glow, high-end catalog look",
-      restrictions: "do not distort product, no fake logos, no messy background, no real text rendering",
+      restrictions:
+        "do not distort product, no fake logos, no messy background, no real text rendering",
       negativePrompt:
         "low quality, blurry, cheap design, distorted product, random text, extra objects, watermark, oversaturated",
     };
@@ -200,7 +204,13 @@ export class MockLLMProvider implements LLMProvider {
       sellingPower: 52 + (seed % 6),
     };
     const total = Math.round(
-      (base.cover + base.infographics + base.text + base.composition + base.trust + base.sellingPower) / 6,
+      (base.cover +
+        base.infographics +
+        base.text +
+        base.composition +
+        base.trust +
+        base.sellingPower) /
+        6,
     );
     return {
       ...base,

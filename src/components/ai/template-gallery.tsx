@@ -41,8 +41,16 @@ export function TemplateGallery({
           </div>
           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{t.prompt}</p>
           <div className="mt-3 flex items-center gap-2">
-            {t.style && <Badge variant="secondary" className="text-[10px]">{t.style}</Badge>}
-            {t.cardType && <Badge variant="secondary" className="text-[10px]">{t.cardType}</Badge>}
+            {t.style && (
+              <Badge variant="secondary" className="text-[10px]">
+                {t.style}
+              </Badge>
+            )}
+            {t.cardType && (
+              <Badge variant="secondary" className="text-[10px]">
+                {t.cardType}
+              </Badge>
+            )}
             <Button size="sm" variant="outline" className="ml-auto" onClick={() => onUse(t)}>
               Использовать
             </Button>

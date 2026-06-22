@@ -57,7 +57,8 @@ export default function AnalysisPage() {
       // build a Russian improvement instruction from the AI's own advice
       const advice = [...report.fixFirst, ...report.visualTips].slice(0, 6).join("; ");
       const prompt = `Улучши эту карточку товара для Wildberries, сохранив сам товар без искажений. ${advice}. Премиальный чистый фон, мягкий студийный свет, аккуратная композиция, место под заголовок.`;
-      const cardText = (report.newCardIdeas[0]?.headline || name || "").trim().slice(0, 60) || undefined;
+      const cardText =
+        (report.newCardIdeas[0]?.headline || name || "").trim().slice(0, 60) || undefined;
 
       const result = await api.generateImage({
         prompt,
@@ -101,20 +102,43 @@ export default function AnalysisPage() {
               />
               <div className="space-y-1.5">
                 <Label htmlFor="aname">Название товара (необязательно)</Label>
-                <Input id="aname" value={name} onChange={(e) => setName(e.target.value)} placeholder="Мужской костюм" />
+                <Input
+                  id="aname"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Мужской костюм"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="acat">Категория (необязательно)</Label>
-                <Input id="acat" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Одежда" />
+                <Input
+                  id="acat"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  placeholder="Одежда"
+                />
               </div>
-              <Button onClick={analyze} disabled={loading || !image} variant="gradient" className="w-full">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
+              <Button
+                onClick={analyze}
+                disabled={loading || !image}
+                variant="gradient"
+                className="w-full"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ScanSearch className="h-4 w-4" />
+                )}
                 Проанализировать
               </Button>
 
               {report && (
                 <Button onClick={improve} disabled={improving} variant="outline" className="w-full">
-                  {improving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                  {improving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
                   Улучшить карточку по советам ИИ
                 </Button>
               )}
@@ -142,9 +166,22 @@ export default function AnalysisPage() {
                   <ImagePreview src={selected?.url} />
                 )}
                 {variants.length > 1 && (
-                  <GeneratedImageGrid variants={variants} selectedId={selectedId} onSelect={setSelectedId} />
+                  <GeneratedImageGrid
+                    variants={variants}
+                    selectedId={selectedId}
+                    onSelect={setSelectedId}
+                  />
                 )}
-                {selected && <ExportPanel src={selected.url} />}
+                {selected && (
+                  <ExportPanel
+                    src={selected.url}
+                    variants={variants}
+                    overlay={{
+                      headline: report?.newCardIdeas[0]?.headline || name || undefined,
+                      scrim: true,
+                    }}
+                  />
+                )}
               </CardContent>
             </Card>
           )}

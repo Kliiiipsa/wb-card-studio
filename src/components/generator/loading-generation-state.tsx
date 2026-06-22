@@ -4,8 +4,9 @@ import type { GenStatus } from "@/store/generator-store";
 
 const LABELS: Record<GenStatus, string> = {
   idle: "",
+  writing: "ИИ пишет промпт…",
   building: "Собираем структурный промпт…",
-  generating: "Генерируем варианты карточки…",
+  generating: "Генерируем карточку…",
   scoring: "Оцениваем результат…",
   done: "Готово",
   error: "Ошибка",

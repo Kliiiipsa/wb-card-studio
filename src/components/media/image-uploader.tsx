@@ -35,7 +35,9 @@ export function ImageUploader({
 
   if (value) {
     return (
-      <div className={cn("group relative overflow-hidden rounded-xl border bg-muted/40", className)}>
+      <div
+        className={cn("group relative overflow-hidden rounded-xl border bg-muted/40", className)}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={value}
@@ -46,7 +48,12 @@ export function ImageUploader({
           <Button size="sm" variant="secondary" onClick={() => inputRef.current?.click()}>
             Заменить
           </Button>
-          <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => onChange(null)}>
+          <Button
+            size="icon"
+            variant="destructive"
+            className="h-8 w-8"
+            onClick={() => onChange(null)}
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>

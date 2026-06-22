@@ -33,7 +33,11 @@ export function PromptEditor({
               onClick={onImprove}
               disabled={improving}
             >
-              {improving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+              {improving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4" />
+              )}
               Улучшить промпт
             </Button>
           )}

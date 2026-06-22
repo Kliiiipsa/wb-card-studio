@@ -1,10 +1,4 @@
-import type {
-  ImageProvider,
-  T2IRequest,
-  I2IRequest,
-  ImageResult,
-  GeneratedImage,
-} from "../types";
+import type { ImageProvider, T2IRequest, I2IRequest, ImageResult, GeneratedImage } from "../types";
 import { ProviderError } from "@/lib/errors";
 
 /**

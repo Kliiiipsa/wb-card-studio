@@ -89,7 +89,8 @@ export function AnalysisReportView({ report }: { report: Report }) {
             {report.newCardIdeas.map((idea, i) => (
               <div key={i} className="rounded-lg border p-3">
                 <div className="text-xs font-medium text-primary">
-                  {CARD_TYPE_MAP[idea.cardType as keyof typeof CARD_TYPE_MAP]?.title ?? idea.cardType}
+                  {CARD_TYPE_MAP[idea.cardType as keyof typeof CARD_TYPE_MAP]?.title ??
+                    idea.cardType}
                 </div>
                 <div className="mt-0.5 text-sm font-medium text-foreground">{idea.title}</div>
                 <p className="mt-1 text-xs">{idea.angle}</p>

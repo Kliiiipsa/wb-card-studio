@@ -7,7 +7,10 @@ export function ProviderBadge() {
   const [status, setStatus] = React.useState<{ llm: string; image: string } | null>(null);
 
   React.useEffect(() => {
-    api.status().then(setStatus).catch(() => setStatus(null));
+    api
+      .status()
+      .then(setStatus)
+      .catch(() => setStatus(null));
   }, []);
 
   if (!status) return null;

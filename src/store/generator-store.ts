@@ -11,18 +11,40 @@ export interface GeneratedVariant {
   url: string;
   width?: number;
   height?: number;
+  /** prompt that produced this variant */
+  prompt?: string;
+  /** Russian headline meant to be overlaid on the card */
+  cardText?: string;
+  cardType?: string;
+  style?: string;
+  createdAt?: string;
 }
 
-export type GenStatus = "idle" | "building" | "generating" | "scoring" | "done" | "error";
+export type GenStatus =
+  | "idle"
+  | "writing"
+  | "building"
+  | "generating"
+  | "scoring"
+  | "done"
+  | "error";
+
+/** Compact, user-friendly style modes (replace the long style list in the UI). */
+export type StyleMode = "auto" | "minimal" | "premium" | "bold" | "lifestyle";
 
 interface GeneratorState {
   product: ProductInfo;
   cardType: CardTypeId;
   style: StyleId;
+  styleMode: StyleMode;
   aspectRatio: AspectRatioId;
+  /** optional free-text "what I want" note */
+  userNote: string;
   userPrompt: string;
   negativePrompt: string;
   finalPrompt: string;
+  /** short Russian headline suggested for the text overlay */
+  overlayHeadline: string;
 
   reference: StoredImage | null;
   referenceStrength: number;
@@ -47,10 +69,13 @@ export const useGeneratorStore = create<GeneratorState>((set) => ({
   product: { ...EMPTY_PRODUCT },
   cardType: "cover",
   style: "premium-minimal",
+  styleMode: "auto",
   aspectRatio: "3:4",
+  userNote: "",
   userPrompt: "",
   negativePrompt: DEFAULT_NEGATIVE,
   finalPrompt: "",
+  overlayHeadline: "",
 
   reference: null,
   referenceStrength: 0.45,
@@ -63,8 +88,7 @@ export const useGeneratorStore = create<GeneratorState>((set) => ({
   setProduct: (patch) => set((s) => ({ product: { ...s.product, ...patch } })),
   setField: (key, value) => set({ [key]: value } as Partial<GeneratorState>),
   setReference: (img) => set({ reference: img }),
-  setVariants: (v) =>
-    set({ variants: v, selectedVariantId: v[0]?.id ?? null }),
+  setVariants: (v) => set({ variants: v, selectedVariantId: v[0]?.id ?? null }),
   selectVariant: (id) => set({ selectedVariantId: id }),
   reset: () =>
     set({

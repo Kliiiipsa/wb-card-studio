@@ -28,7 +28,14 @@ export function ScoreCard({ score }: { score: CardScore }) {
       <div className="flex items-center gap-4 rounded-xl border bg-gradient-to-br from-primary/5 to-blue-500/5 p-4">
         <div className="relative flex h-20 w-20 items-center justify-center">
           <svg viewBox="0 0 36 36" className="h-20 w-20 -rotate-90">
-            <circle cx="18" cy="18" r="15.9" fill="none" stroke="hsl(var(--secondary))" strokeWidth="3" />
+            <circle
+              cx="18"
+              cy="18"
+              r="15.9"
+              fill="none"
+              stroke="hsl(var(--secondary))"
+              strokeWidth="3"
+            />
             <circle
               cx="18"
               cy="18"
@@ -60,7 +67,10 @@ export function ScoreCard({ score }: { score: CardScore }) {
                 <span className={cn("font-semibold", color(v))}>{v}</span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                <div className={cn("h-full rounded-full transition-all", barColor(v))} style={{ width: `${v}%` }} />
+                <div
+                  className={cn("h-full rounded-full transition-all", barColor(v))}
+                  style={{ width: `${v}%` }}
+                />
               </div>
             </div>
           );

@@ -118,8 +118,17 @@ export default function ProjectPage() {
                 <span>Анализ карточки</span>
               </Link>
             </Button>
-            <Button variant="outline" className="h-auto flex-col gap-1 py-4" onClick={generateIdeas} disabled={ideasLoading}>
-              {ideasLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Lightbulb className="h-5 w-5" />}
+            <Button
+              variant="outline"
+              className="h-auto flex-col gap-1 py-4"
+              onClick={generateIdeas}
+              disabled={ideasLoading}
+            >
+              {ideasLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Lightbulb className="h-5 w-5" />
+              )}
               <span>Сгенерировать идеи</span>
             </Button>
           </div>
@@ -137,7 +146,8 @@ export default function ProjectPage() {
                 {ideas.map((idea, i) => (
                   <div key={i} className="rounded-lg border p-3">
                     <Badge variant="secondary" className="text-[10px]">
-                      {CARD_TYPE_MAP[idea.cardType as keyof typeof CARD_TYPE_MAP]?.title ?? idea.cardType}
+                      {CARD_TYPE_MAP[idea.cardType as keyof typeof CARD_TYPE_MAP]?.title ??
+                        idea.cardType}
                     </Badge>
                     <div className="mt-1.5 text-sm font-medium">{idea.title}</div>
                     <p className="mt-1 text-xs text-muted-foreground">{idea.angle}</p>
@@ -164,8 +174,7 @@ export default function ProjectPage() {
                   action={
                     <Button asChild variant="gradient">
                       <Link href="/generator">
-                        <Wand2 className="h-4 w-4" />
-                        В генератор
+                        <Wand2 className="h-4 w-4" />В генератор
                       </Link>
                     </Button>
                   }

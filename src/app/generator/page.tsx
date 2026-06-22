@@ -2,13 +2,12 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Wand2, Loader2, RefreshCw, Image as ImageIcon, Type } from "lucide-react";
+import { Wand2, Loader2, RefreshCw, Sparkles, Eraser, ImagePlus } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -17,45 +16,53 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProductForm } from "@/components/generator/product-form";
-import { CardTypeSelector } from "@/components/generator/card-type-selector";
-import { StyleSelector } from "@/components/generator/style-selector";
-import { PromptEditor } from "@/components/generator/prompt-editor";
 import { GeneratedImageGrid } from "@/components/generator/generated-image-grid";
 import { LoadingGenerationState } from "@/components/generator/loading-generation-state";
 import { ExportPanel } from "@/components/generator/export-panel";
 import { ImageUploader } from "@/components/media/image-uploader";
 import { ImagePreview } from "@/components/media/image-preview";
-import { AIRecommendations, type QuickAction } from "@/components/ai/ai-recommendations";
-import { ScoreCard } from "@/components/ai/score-card";
-import { useGeneratorStore } from "@/store/generator-store";
+import { useGeneratorStore, type StyleMode } from "@/store/generator-store";
 import { useProjectStore } from "@/store/project-store";
 import { useCardGeneration } from "@/hooks/use-card-generation";
-import { ASPECT_RATIOS } from "@/core/domain/export-presets";
+import { CARD_TYPES, type CardTypeId } from "@/core/domain/card-types";
 import { uid } from "@/lib/utils";
-import type { CardTypeId } from "@/core/domain/card-types";
+
+const STYLE_MODES: { id: StyleMode; label: string }[] = [
+  { id: "auto", label: "Авто" },
+  { id: "minimal", label: "Минимал" },
+  { id: "premium", label: "Премиум" },
+  { id: "bold", label: "Ярко" },
+  { id: "lifestyle", label: "Lifestyle" },
+];
 
 function GeneratorInner() {
   const params = useSearchParams();
   const s = useGeneratorStore();
   const project = useProjectStore();
-  const { generate, improvePrompt } = useCardGeneration();
+  const { writePrompt, generate, improvePrompt } = useCardGeneration();
+  const [writing, setWriting] = React.useState(false);
   const [improving, setImproving] = React.useState(false);
 
-  // hydrate from query params (e.g. ?type=benefits)
   React.useEffect(() => {
     const type = params.get("type");
     if (type) s.setField("cardType", type as CardTypeId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // pull product from active project if present
   React.useEffect(() => {
     if (project.current) s.setProduct(project.current.product);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.current?.id]);
 
-  const busy = s.status === "building" || s.status === "generating" || s.status === "scoring";
+  const busy = s.status === "generating" || s.status === "scoring";
   const selected = s.variants.find((v) => v.id === s.selectedVariantId);
+  const latestScore = project.generations[0]?.score;
+
+  const handleWrite = async () => {
+    setWriting(true);
+    await writePrompt();
+    setWriting(false);
+  };
 
   const handleImprove = async () => {
     setImproving(true);
@@ -63,167 +70,164 @@ function GeneratorInner() {
     setImproving(false);
   };
 
-  const handleGenerate = () => generate({ buildPrompt: !!s.product.name });
-
-  const handleQuickAction = async (action: QuickAction) => {
-    const base = s.finalPrompt || s.userPrompt;
-    await generate({ promptOverride: `${base}, ${action.modifier}` });
-  };
-
-  // latest score lives on the most recent generation in the project store
-  const latestScore = project.generations[0]?.score;
-
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">Как это работает:</span> слева заполните данные товара и
-        выберите тип/стиль → в центре напишите пожелание или загрузите фото товара → нажмите «Сгенерировать».
-        Текст можно писать по-русски, мы сами переведём его для модели.
-      </div>
-      <div className="grid gap-5 xl:grid-cols-[340px_1fr_320px]">
-      {/* LEFT: inputs */}
-      <div className="space-y-4">
+    <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[1fr_1fr]">
+      {/* BLOCK 1 — Product data */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">1. Данные товара</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ImageUploader
+            value={s.reference?.dataUrl}
+            onChange={(dataUrl) =>
+              s.setReference(dataUrl ? { id: uid("ref"), dataUrl, createdAt: Date.now() } : null)
+            }
+            label="Загрузите фото товара"
+            hint="Необязательно. С фото ИИ напишет промпт точнее (image-to-image)"
+          />
+
+          <ProductForm product={s.product} onChange={(p) => s.setProduct(p)} />
+
+          <div className="space-y-1.5">
+            <Label htmlFor="note">Дополнительное пожелание</Label>
+            <Textarea
+              id="note"
+              value={s.userNote}
+              onChange={(e) => s.setField("userNote", e.target.value)}
+              placeholder="Например: тёмный премиальный фон, акцент на качестве"
+              className="min-h-[60px]"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Что создаём?</Label>
+              <Select
+                value={s.cardType}
+                onValueChange={(v) => s.setField("cardType", v as CardTypeId)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CARD_TYPES.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Стиль</Label>
+              <Select
+                value={s.styleMode}
+                onValueChange={(v) => s.setField("styleMode", v as StyleMode)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STYLE_MODES.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* BLOCK 2 + 3 — Prompt & generation */}
+      <div className="space-y-5">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Данные товара</CardTitle>
+            <CardTitle className="text-sm">2. Промпт</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ProductForm product={s.product} onChange={(p) => s.setProduct(p)} />
-          </CardContent>
-        </Card>
+          <CardContent className="space-y-3">
+            <Button
+              onClick={handleWrite}
+              disabled={writing || busy}
+              variant="gradient"
+              className="w-full"
+            >
+              {writing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              Написать промпт
+            </Button>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Тип карточки</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardTypeSelector value={s.cardType} onChange={(v) => s.setField("cardType", v)} />
-          </CardContent>
-        </Card>
+            <Textarea
+              value={s.userPrompt}
+              onChange={(e) => s.setField("userPrompt", e.target.value)}
+              placeholder="Нажмите «Написать промпт» — ИИ опишет карточку по фото и данным товара. Текст можно отредактировать."
+              className="min-h-[160px]"
+            />
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Стиль</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <StyleSelector value={s.style} onChange={(v) => s.setField("style", v)} />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* CENTER: preview + prompt */}
-      <div className="space-y-4">
-        <Card>
-          <CardContent className="p-4">
-            <Tabs defaultValue="t2i">
-              <TabsList className="mb-4">
-                <TabsTrigger value="t2i">
-                  <Type className="mr-1.5 h-4 w-4" />
-                  По промпту
-                </TabsTrigger>
-                <TabsTrigger value="i2i">
-                  <ImageIcon className="mr-1.5 h-4 w-4" />
-                  По фото товара
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="t2i" className="mt-0 space-y-4">
-                <PromptEditor
-                  prompt={s.userPrompt}
-                  negativePrompt={s.negativePrompt}
-                  onPromptChange={(v) => s.setField("userPrompt", v)}
-                  onNegativeChange={(v) => s.setField("negativePrompt", v)}
-                  onImprove={handleImprove}
-                  improving={improving}
-                />
-              </TabsContent>
-
-              <TabsContent value="i2i" className="mt-0 space-y-4">
-                <ImageUploader
-                  value={s.reference?.dataUrl}
-                  onChange={(dataUrl) =>
-                    s.setReference(
-                      dataUrl ? { id: uid("ref"), dataUrl, createdAt: Date.now() } : null,
-                    )
-                  }
-                  label="Загрузите фото товара"
-                  hint="Товар сохранится, изменим только фон, свет и композицию"
-                />
-                {s.reference && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs">Сохранять товар</Label>
-                      <span className="text-xs text-muted-foreground">
-                        {Math.round((1 - s.referenceStrength) * 100)}%
-                      </span>
-                    </div>
-                    <Slider
-                      value={s.referenceStrength}
-                      onValueChange={(v) => s.setField("referenceStrength", v)}
-                      min={0.2}
-                      max={0.8}
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                      Левее — товар почти не меняется. Правее — больше свободы у ИИ.
-                    </p>
-                  </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleImprove}
+                disabled={improving || busy || !s.userPrompt.trim()}
+                variant="outline"
+                size="sm"
+              >
+                {improving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
                 )}
-                <PromptEditor
-                  prompt={s.userPrompt}
-                  negativePrompt={s.negativePrompt}
-                  onPromptChange={(v) => s.setField("userPrompt", v)}
-                  onNegativeChange={(v) => s.setField("negativePrompt", v)}
-                  onImprove={handleImprove}
-                  improving={improving}
-                />
-              </TabsContent>
-            </Tabs>
-
-            <div className="mt-4 grid grid-cols-[1fr_auto] gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Соотношение сторон</Label>
-                <Select value={s.aspectRatio} onValueChange={(v) => s.setField("aspectRatio", v as typeof s.aspectRatio)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ASPECT_RATIOS.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button onClick={handleGenerate} disabled={busy} variant="gradient" size="lg">
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                  Сгенерировать
-                </Button>
-              </div>
+                Переписать
+              </Button>
+              <Button
+                onClick={() => s.setField("userPrompt", "")}
+                disabled={!s.userPrompt.trim()}
+                variant="ghost"
+                size="sm"
+              >
+                <Eraser className="h-4 w-4" />
+                Очистить
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Preview area */}
         <Card>
           <CardHeader className="flex-row items-center justify-between pb-3">
-            <CardTitle className="text-sm">Превью карточки</CardTitle>
+            <CardTitle className="text-sm">3. Генерация</CardTitle>
             {s.variants.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={handleGenerate} disabled={busy}>
+              <Button variant="ghost" size="sm" onClick={() => generate()} disabled={busy}>
                 <RefreshCw className="h-4 w-4" />
-                Перегенерировать
+                Ещё вариант
               </Button>
             )}
           </CardHeader>
           <CardContent className="space-y-4">
+            <Button
+              onClick={() => generate()}
+              disabled={busy || !s.userPrompt.trim()}
+              variant="gradient"
+              size="lg"
+              className="w-full"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+              Сгенерировать карточку
+            </Button>
+
             {busy ? (
               <LoadingGenerationState status={s.status} />
             ) : selected ? (
               <ImagePreview src={selected.url} className="mx-auto max-w-sm" />
             ) : (
-              <div className="flex aspect-[3/4] max-w-sm mx-auto items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
-                Здесь появится сгенерированная карточка
+              <div className="flex aspect-[3/4] max-w-sm mx-auto items-center justify-center rounded-xl border border-dashed text-center text-sm text-muted-foreground">
+                <span className="flex flex-col items-center gap-2 px-6">
+                  <ImagePlus className="h-6 w-6 opacity-60" />
+                  Здесь появится карточка
+                </span>
               </div>
             )}
 
@@ -236,35 +240,28 @@ function GeneratorInner() {
                 />
               </div>
             )}
+
+            {selected && (
+              <div className="space-y-3 border-t pt-4">
+                <ExportPanel
+                  src={selected.url}
+                  variants={s.variants}
+                  overlay={{
+                    headline:
+                      s.overlayHeadline || s.product.benefits[0] || s.product.name || undefined,
+                    benefits: s.product.benefits.slice(0, 3),
+                    scrim: true,
+                  }}
+                />
+                {latestScore && (
+                  <p className="text-center text-xs text-muted-foreground">
+                    Оценка карточки: <span className="font-semibold">{latestScore.total}/100</span>
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
-
-        {selected && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Экспорт</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ExportPanel src={selected.url} />
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* RIGHT: recommendations + score */}
-      <div className="space-y-4">
-        <AIRecommendations onQuickAction={handleQuickAction} disabled={busy || s.variants.length === 0} />
-        {latestScore && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Оценка карточки</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScoreCard score={latestScore} />
-            </CardContent>
-          </Card>
-        )}
-      </div>
       </div>
     </div>
   );
@@ -272,7 +269,7 @@ function GeneratorInner() {
 
 export default function GeneratorPage() {
   return (
-    <AppShell title="Генератор карточек">
+    <AppShell title="Создать карточку">
       <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Загрузка…</div>}>
         <GeneratorInner />
       </Suspense>

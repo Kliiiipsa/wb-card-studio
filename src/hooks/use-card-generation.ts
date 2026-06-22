@@ -8,42 +8,61 @@ import { uid } from "@/lib/utils";
 import type { Generation } from "@/core/domain/types";
 
 /**
- * Orchestrates the full generation pipeline used by the Generator and Prompt
- * Studio: (optionally build a structured prompt) → generate variants → score →
- * persist to the active project.
+ * Generation pipeline.
+ *
+ * New product logic:
+ *   1. `writePrompt()` — AI looks at the photo + product data and writes a ready
+ *      Russian prompt into the field (the user can then edit it).
+ *   2. `generate()` — generates the image straight from that prompt field
+ *      (translated to English server-side). No hidden style/strategy overrides.
  */
 export function useCardGeneration() {
   const gen = useGeneratorStore();
   const project = useProjectStore();
 
+  /** "Написать промпт" — AI authors the prompt from photo + product data. */
+  const writePrompt = useCallback(async () => {
+    const s = useGeneratorStore.getState();
+    gen.setField("status", "writing");
+    gen.setField("error", null);
+    try {
+      const result = await api.writePrompt({
+        product: s.product,
+        cardType: s.cardType,
+        styleMode: s.styleMode,
+        userNote: s.userNote,
+        referenceImageDataUrl: s.reference?.dataUrl,
+      });
+      gen.setField("userPrompt", result.generatedPrompt);
+      if (result.negativePrompt) gen.setField("negativePrompt", result.negativePrompt);
+      gen.setField("overlayHeadline", result.overlaySuggestion ?? "");
+      gen.setField("status", "idle");
+      toast.success("Промпт готов — отредактируйте при желании");
+    } catch (e) {
+      gen.setField("status", "idle");
+      toast.error(e instanceof Error ? e.message : "Не удалось написать промпт");
+    }
+  }, [gen]);
+
   const generate = useCallback(
-    async (opts?: { buildPrompt?: boolean; promptOverride?: string }) => {
+    async (opts?: { promptOverride?: string }) => {
       const s = useGeneratorStore.getState();
       try {
         gen.setField("error", null);
 
-        // 1. Build the final prompt
-        let finalPrompt = opts?.promptOverride ?? s.userPrompt;
-        if (opts?.buildPrompt && s.product.name) {
-          gen.setField("status", "building");
-          const structured = await api.buildPrompt({
-            product: s.product,
-            cardType: s.cardType,
-            style: s.style,
-            userPrompt: s.userPrompt,
-          });
-          finalPrompt = structured.rendered;
-        }
-        if (!finalPrompt.trim()) {
-          toast.error("Введите промпт или заполните данные товара.");
-          gen.setField("status", "idle");
+        const finalPrompt = (opts?.promptOverride ?? s.userPrompt).trim();
+        if (!finalPrompt) {
+          toast.error("Сначала нажмите «Написать промпт» или введите промпт вручную.");
           return;
         }
         gen.setField("finalPrompt", finalPrompt);
 
-        // 2. Generate (text-to-image or image-to-image)
-        // short Russian headline rendered on the card (kept in Russian)
-        const cardText = (s.product.benefits[0] || s.product.name || "").trim().slice(0, 60) || undefined;
+        // Russian headline kept for the text overlay (not rendered by the model)
+        const cardText =
+          (s.overlayHeadline || s.product.benefits[0] || s.product.name || "")
+            .trim()
+            .slice(0, 60) || undefined;
+
         gen.setField("status", "generating");
         const result = s.reference
           ? await api.generateImage({
@@ -63,15 +82,21 @@ export function useCardGeneration() {
               cardText,
             });
 
+        const nowIso = new Date().toISOString();
         const variants: GeneratedVariant[] = result.images.map((img) => ({
           id: uid("var"),
           url: img.url,
           width: img.width,
           height: img.height,
+          prompt: finalPrompt,
+          cardText,
+          cardType: s.cardType,
+          style: s.style,
+          createdAt: nowIso,
         }));
         gen.setVariants(variants);
 
-        // 3. Score the first variant (best-effort; non-fatal)
+        // Score the variant (best-effort; non-fatal)
         gen.setField("status", "scoring");
         let score;
         try {
@@ -84,7 +109,6 @@ export function useCardGeneration() {
           // scoring is non-critical
         }
 
-        // 4. Persist if a project is open
         if (project.current) {
           const record: Generation = {
             id: uid("gen"),
@@ -125,20 +149,21 @@ export function useCardGeneration() {
     [gen, project],
   );
 
+  /** Secondary "Переписать / Сделать лучше" — improve the existing prompt text. */
   const improvePrompt = useCallback(async () => {
     const s = useGeneratorStore.getState();
     if (!s.userPrompt.trim()) {
-      toast.error("Сначала введите черновой промпт.");
+      toast.error("Сначала напишите промпт.");
       return;
     }
     try {
       const { prompt } = await api.improvePrompt(s.userPrompt, s.cardType, s.style);
       gen.setField("userPrompt", prompt);
-      toast.success("Промпт улучшен");
+      toast.success("Промпт переписан");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Не удалось улучшить промпт");
+      toast.error(e instanceof Error ? e.message : "Не удалось переписать промпт");
     }
   }, [gen]);
 
-  return { generate, improvePrompt };
+  return { writePrompt, generate, improvePrompt };
 }

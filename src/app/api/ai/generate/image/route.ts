@@ -17,6 +17,7 @@ export async function POST(req: Request) {
       strength: body.strength,
       aspectRatio: body.aspectRatio,
       count: body.count,
+      cardText: body.cardText,
     });
     return ok(result);
   } catch (err) {

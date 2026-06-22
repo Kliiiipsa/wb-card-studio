@@ -56,7 +56,10 @@ export function Toaster() {
         >
           {ICONS[t.kind]}
           <p className="flex-1 text-sm leading-snug">{t.message}</p>
-          <button onClick={() => dismiss(t.id)} className="text-muted-foreground hover:text-foreground">
+          <button
+            onClick={() => dismiss(t.id)}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>

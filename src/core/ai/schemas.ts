@@ -118,6 +118,17 @@ export const scoreRequestSchema = z.object({
   cardType: z.string().optional(),
 });
 
+export const writePromptRequestSchema = z.object({
+  product: looseProductSchema.optional(),
+  cardType: z.string().optional(),
+  styleMode: z.string().optional(),
+  userNote: z.string().max(1000).optional(),
+  /** optional product photo (data URL) for vision-based prompt writing */
+  referenceImageDataUrl: z.string().optional(),
+});
+
+export type WritePromptRequest = z.infer<typeof writePromptRequestSchema>;
+
 export type AnalyzeRequest = z.infer<typeof analyzeRequestSchema>;
 export type IdeasRequest = z.infer<typeof ideasRequestSchema>;
 export type ImprovePromptRequest = z.infer<typeof improvePromptRequestSchema>;

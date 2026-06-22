@@ -18,6 +18,12 @@ import {
   structuredPromptSchema,
 } from "./schemas";
 import { renderStructuredPrompt } from "./prompt-builder";
+import {
+  buildPromptMessages,
+  parsePromptResult,
+  fallbackPrompt,
+} from "@/core/prompting/prompt-composer";
+import type { PromptIntent, PromptResult } from "@/core/prompting/prompt-intent";
 import type {
   AnalysisReport,
   CardIdea,
@@ -68,11 +74,7 @@ export async function generateCardIdeas(product: Partial<ProductInfo>): Promise<
       { role: "user", content: ideasUserPrompt(product) },
     ],
   });
-  const parsed = parse(
-    result.text,
-    z.object({ ideas: z.array(cardIdeaSchema) }),
-    "идеи карточек",
-  );
+  const parsed = parse(result.text, z.object({ ideas: z.array(cardIdeaSchema) }), "идеи карточек");
   return parsed.ideas as CardIdea[];
 }
 
@@ -142,9 +144,57 @@ export async function scoreGeneratedCard(args: {
       : loose;
   const parsed = cardScoreSchema.safeParse(candidate);
   if (!parsed.success) {
-    throw new ProviderError("Не удалось оценить карточку. Попробуйте ещё раз.", parsed.error.message);
+    throw new ProviderError(
+      "Не удалось оценить карточку. Попробуйте ещё раз.",
+      parsed.error.message,
+    );
   }
   return parsed.data;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Prompt authoring ("Написать промпт")                                      */
+/* -------------------------------------------------------------------------- */
+
+export async function writePrompt(input: {
+  product?: Partial<ProductInfo>;
+  cardType?: string;
+  styleMode?: string;
+  userNote?: string;
+  referenceImageDataUrl?: string;
+}): Promise<PromptResult> {
+  const product = input.product ?? {};
+  const intent: PromptIntent = {
+    productName: product.name,
+    category: product.category,
+    benefits: product.benefits,
+    painPoints: product.pains,
+    targetAudience: product.audience,
+    userNote: input.userNote,
+    cardType: input.cardType,
+    styleMode: (input.styleMode as PromptIntent["styleMode"]) ?? "auto",
+    generationMode: input.referenceImageDataUrl ? "image-to-image" : "text-to-image",
+  };
+
+  const image = input.referenceImageDataUrl
+    ? await ensureDataUrl(input.referenceImageDataUrl)
+    : undefined;
+
+  try {
+    const llm = getLLMProvider();
+    const result = await llm.complete({
+      task: "write-prompt",
+      json: true,
+      vision: !!image,
+      context: { intent },
+      messages: buildPromptMessages(intent, image),
+    });
+    const parsed = parsePromptResult(safeJson(result.text));
+    return parsed ?? fallbackPrompt(intent);
+  } catch {
+    // never block the user — fall back to the deterministic prompt
+    return fallbackPrompt(intent);
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -183,14 +233,23 @@ export async function generateImageFromReference(args: {
 
 /**
  * Image models work best in English, but users write Russian. Translate the
- * descriptive prompt to English, then append any literal on-card text in Russian
- * (verbatim, so it isn't translated away).
+ * descriptive prompt to English.
+ *
+ * IMPORTANT: image models render Cyrillic poorly, so we DON'T ask the model to
+ * draw the headline text. Instead we pass the headline's *meaning* (to guide the
+ * composition) and instruct the model to leave a clean empty typography zone.
+ * The real Russian text is composited on top later via the canvas renderer.
  */
 async function buildModelPrompt(prompt: string, cardText?: string): Promise<string> {
   const en = await translateToEnglish(prompt);
   const text = cardText?.trim();
   if (!text) return en;
-  return `${en}. The card must contain this exact text written in Russian (Cyrillic): "${text}". Spell it correctly.`;
+  const meaning = await translateToEnglish(text);
+  return (
+    `${en}. Reserve a clean, empty typography area for a short headline about "${meaning}". ` +
+    `Do NOT render any text, letters, words or logos inside the image — keep that area clear so ` +
+    `text can be overlaid later. Balanced premium layout with the product as the focal point.`
+  );
 }
 
 /** Translate to English via the LLM; returns input unchanged if it has no Cyrillic. */
@@ -304,7 +363,10 @@ async function ensureDataUrl(src: string): Promise<string> {
     try {
       res = await fetch(src, { cache: "no-store" });
     } catch (e) {
-      throw new ProviderError("Не удалось загрузить изображение.", `fetch image failed: ${String(e)}`);
+      throw new ProviderError(
+        "Не удалось загрузить изображение.",
+        `fetch image failed: ${String(e)}`,
+      );
     }
     if (!res.ok) {
       throw new ProviderError("Не удалось загрузить изображение.", `image ${res.status}`);
@@ -341,14 +403,14 @@ function safeJson(text: string): unknown {
 function parse<T>(text: string, schema: z.ZodType<T>, label: string): T {
   const data = safeJson(text);
   if (data == null) {
-    throw new ProviderError(`AI вернул некорректный ответ (${label}).`, `unparseable: ${text.slice(0, 200)}`);
+    throw new ProviderError(
+      `AI вернул некорректный ответ (${label}).`,
+      `unparseable: ${text.slice(0, 200)}`,
+    );
   }
   const result = schema.safeParse(data);
   if (!result.success) {
-    throw new ProviderError(
-      `AI вернул ответ в неверном формате (${label}).`,
-      result.error.message,
-    );
+    throw new ProviderError(`AI вернул ответ в неверном формате (${label}).`, result.error.message);
   }
   return result.data;
 }
