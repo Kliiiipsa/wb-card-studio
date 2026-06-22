@@ -61,6 +61,7 @@ export function assembleBrief(
     input,
     resolvedStyle,
     styleProfile,
+    { headline: copy.headline, subheadline: copy.subheadline, blocks: copy.blocks },
   );
 
   const warnings: string[] = [];

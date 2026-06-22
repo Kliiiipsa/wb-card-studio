@@ -55,6 +55,17 @@ export default function InfographicsPage() {
   const [briefing, setBriefing] = React.useState(false);
   const [generating, setGenerating] = React.useState(false);
 
+  // AI mode shows the model-rendered infographic directly; mock falls back to
+  // the canvas overlay so the demo still produces something usable.
+  const [imageProvider, setImageProvider] = React.useState<string>("mock");
+  React.useEffect(() => {
+    api
+      .status()
+      .then((s) => setImageProvider(s.image))
+      .catch(() => {});
+  }, []);
+  const resultMode: "ai" | "overlay" = imageProvider === "mock" ? "overlay" : "ai";
+
   const buildInput = (): InfographicInput => ({
     productName: product.name,
     category: product.category,
@@ -281,7 +292,7 @@ export default function InfographicsPage() {
                 Генерируем основу…
               </div>
             ) : baseImageUrl && brief ? (
-              <InfographicCanvas baseSrc={baseImageUrl} brief={brief} />
+              <InfographicCanvas baseSrc={baseImageUrl} brief={brief} mode={resultMode} />
             ) : (
               <EmptyState
                 icon={<ImagePlus className="h-6 w-6" />}
@@ -291,7 +302,7 @@ export default function InfographicsPage() {
             )}
 
             {baseImageUrl && brief && (
-              <InfographicExportPanel baseSrc={baseImageUrl} brief={brief} />
+              <InfographicExportPanel baseSrc={baseImageUrl} brief={brief} mode={resultMode} />
             )}
           </CardContent>
         </Card>

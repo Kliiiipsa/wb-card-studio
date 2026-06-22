@@ -253,7 +253,9 @@ export async function generateInfographicBase(args: {
         prompt: args.brief.imagePrompt,
         negativePrompt: args.brief.negativePrompt,
         referenceImageDataUrl: args.referenceImage,
-        strength: 0.4,
+        // higher strength: let the model transform the photo into a full
+        // infographic (title, badges, layout) rather than lightly edit it
+        strength: 0.7,
         aspectRatio,
         count: 1,
       })

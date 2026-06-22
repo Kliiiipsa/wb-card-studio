@@ -12,15 +12,18 @@ import {
 } from "@/components/ui/select";
 import { EXPORT_PRESETS, type ExportFormat } from "@/core/domain/export-presets";
 import { exportInfographicCard } from "@/core/infographics/render-card";
+import { exportCard } from "@/core/rendering/export";
 import type { InfographicBrief } from "@/core/infographics/types";
 import { toast } from "@/components/ui/toaster";
 
 export function InfographicExportPanel({
   baseSrc,
   brief,
+  mode = "ai",
 }: {
   baseSrc: string;
   brief: InfographicBrief;
+  mode?: "ai" | "overlay";
 }) {
   const [presetId, setPresetId] = React.useState(EXPORT_PRESETS[0].id);
   const [format, setFormat] = React.useState<ExportFormat>("png");
@@ -31,8 +34,12 @@ export function InfographicExportPanel({
     setBusy(true);
     try {
       for (const p of presets) {
+        // AI mode = the model already baked everything in → export image as-is.
+        // overlay mode (mock/fallback) = compose canvas overlay.
         // eslint-disable-next-line no-await-in-loop
-        await exportInfographicCard(baseSrc, p, format, brief);
+        if (mode === "overlay") await exportInfographicCard(baseSrc, p, format, brief);
+        // eslint-disable-next-line no-await-in-loop
+        else await exportCard(baseSrc, p, format, { baseName: "wb-infographic" });
       }
       toast.success(presets.length > 1 ? "Все размеры скачаны" : "Карточка скачана");
     } catch (e) {
