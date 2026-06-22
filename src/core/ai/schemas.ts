@@ -1,0 +1,127 @@
+import { z } from "zod";
+
+export const productInfoSchema = z.object({
+  name: z.string().min(1, "Укажите название товара").max(200),
+  category: z.string().max(120).default(""),
+  price: z.string().max(40).optional().default(""),
+  audience: z.string().max(300).default(""),
+  benefits: z.array(z.string().max(200)).max(20).default([]),
+  pains: z.array(z.string().max(200)).max(20).default([]),
+});
+
+export const cardScoreSchema = z.object({
+  cover: z.number().min(0).max(100),
+  infographics: z.number().min(0).max(100),
+  text: z.number().min(0).max(100),
+  composition: z.number().min(0).max(100),
+  trust: z.number().min(0).max(100),
+  sellingPower: z.number().min(0).max(100),
+  total: z.number().min(0).max(100),
+  comment: z.string().optional(),
+});
+
+export const cardIdeaSchema = z.object({
+  cardType: z.string(),
+  title: z.string(),
+  angle: z.string(),
+  headline: z.string(),
+  keyPoints: z.array(z.string()).default([]),
+});
+
+export const analysisReportSchema = z.object({
+  diagnosis: z.string(),
+  mainProblem: z.string(),
+  blockersToPurchase: z.array(z.string()).default([]),
+  whatWorks: z.array(z.string()).default([]),
+  fixFirst: z.array(z.string()).default([]),
+  newCardIdeas: z.array(cardIdeaSchema).default([]),
+  textTips: z.array(z.string()).default([]),
+  visualTips: z.array(z.string()).default([]),
+  scores: cardScoreSchema,
+  improvementPlan: z.array(z.string()).default([]),
+});
+
+export const structuredPromptSchema = z.object({
+  product: z.string(),
+  marketplace: z.string(),
+  cardType: z.string(),
+  targetAudience: z.string(),
+  mainBenefit: z.string(),
+  visualStyle: z.string(),
+  composition: z.string(),
+  background: z.string(),
+  lighting: z.string(),
+  typographyArea: z.string(),
+  colorPalette: z.string(),
+  premiumDetails: z.string(),
+  restrictions: z.string(),
+  negativePrompt: z.string(),
+});
+
+/** ---------- API request schemas ---------- */
+
+/** Loose product for analysis/scoring — every field optional, empty allowed. */
+export const looseProductSchema = z
+  .object({
+    name: z.string().max(200),
+    category: z.string().max(120),
+    price: z.string().max(40),
+    audience: z.string().max(300),
+    benefits: z.array(z.string().max(200)).max(20),
+    pains: z.array(z.string().max(200)).max(20),
+  })
+  .partial();
+
+export const analyzeRequestSchema = z.object({
+  imageDataUrl: z.string().min(1),
+  product: looseProductSchema.optional(),
+});
+
+export const ideasRequestSchema = z.object({
+  product: productInfoSchema,
+});
+
+export const improvePromptRequestSchema = z.object({
+  prompt: z.string().min(1).max(4000),
+  cardType: z.string().optional(),
+  style: z.string().optional(),
+});
+
+export const buildPromptRequestSchema = z.object({
+  product: productInfoSchema,
+  cardType: z.string(),
+  style: z.string(),
+  userPrompt: z.string().max(4000).optional().default(""),
+});
+
+export const generateTextRequestSchema = z.object({
+  prompt: z.string().min(1).max(6000),
+  negativePrompt: z.string().max(2000).optional().default(""),
+  aspectRatio: z.string().default("3:4"),
+  count: z.number().int().min(1).max(4).default(2),
+  cardText: z.string().max(120).optional(),
+});
+
+export const generateImageRequestSchema = z.object({
+  prompt: z.string().min(1).max(6000),
+  negativePrompt: z.string().max(2000).optional().default(""),
+  referenceImageDataUrl: z.string().min(1),
+  strength: z.number().min(0).max(1).default(0.55),
+  aspectRatio: z.string().default("3:4"),
+  count: z.number().int().min(1).max(4).default(2),
+  cardText: z.string().max(120).optional(),
+});
+
+export const scoreRequestSchema = z.object({
+  imageDataUrl: z.string().min(1),
+  product: looseProductSchema.optional(),
+  cardType: z.string().optional(),
+});
+
+export type AnalyzeRequest = z.infer<typeof analyzeRequestSchema>;
+export type IdeasRequest = z.infer<typeof ideasRequestSchema>;
+export type ImprovePromptRequest = z.infer<typeof improvePromptRequestSchema>;
+export type BuildPromptRequest = z.infer<typeof buildPromptRequestSchema>;
+export type GenerateTextRequest = z.infer<typeof generateTextRequestSchema>;
+export type GenerateImageRequest = z.infer<typeof generateImageRequestSchema>;
+export type ScoreRequest = z.infer<typeof scoreRequestSchema>;
