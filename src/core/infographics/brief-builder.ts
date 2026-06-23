@@ -9,6 +9,7 @@ import type {
 import { LAYOUT_BY_TYPE, STYLE_PRESETS, resolveStyle } from "./layout-presets";
 import { buildInfographicImagePrompt } from "./infographic-prompt-builder";
 import { buildOverlayPlan } from "./overlay-builder";
+import { fallbackLayoutPlan, type LayoutPlan } from "./layout-plan";
 
 export type BriefCopy = {
   headline: string;
@@ -50,6 +51,7 @@ export function assembleBrief(
   input: InfographicInput,
   copy: BriefCopy,
   styleProfile?: StyleProfile,
+  layoutPlan?: LayoutPlan,
 ): InfographicBrief {
   const resolvedStyle: Exclude<InfographicStyle, "auto"> = resolveStyle(
     input.style,
@@ -57,12 +59,6 @@ export function assembleBrief(
   );
   const preset = LAYOUT_BY_TYPE[input.type];
   const sp = STYLE_PRESETS[resolvedStyle];
-  const { imagePrompt, negativePrompt, backgroundPrompt } = buildInfographicImagePrompt(
-    input,
-    resolvedStyle,
-    styleProfile,
-    { headline: copy.headline, subheadline: copy.subheadline, blocks: copy.blocks },
-  );
 
   const warnings: string[] = [];
   if (copy.blocks.length === 0) {
@@ -86,6 +82,24 @@ export function assembleBrief(
     ? [styleProfile.palette.accent, styleProfile.palette.surface, styleProfile.palette.textPrimary]
     : sp.palette;
 
+  // Per-photo layout: use the supplied plan (vision, or carried through edits),
+  // otherwise a deterministic fallback derived from the chosen style.
+  const plan =
+    layoutPlan ??
+    fallbackLayoutPlan({
+      benefitCount: blocks.length,
+      hasSubheadline: !!copy.subheadline,
+      headlinePosition: styleProfile?.headlinePosition,
+      mode: styleProfile?.mode,
+    });
+
+  const { imagePrompt, negativePrompt, backgroundPrompt } = buildInfographicImagePrompt(
+    input,
+    resolvedStyle,
+    styleProfile,
+    plan,
+  );
+
   const overlayPlan = buildOverlayPlan({
     headline: copy.headline,
     subheadline: copy.subheadline,
@@ -107,6 +121,7 @@ export function assembleBrief(
     imagePrompt,
     negativePrompt,
     overlayPlan,
+    layoutPlan: plan,
     styleProfile,
     warnings,
   };
@@ -116,8 +131,9 @@ export function assembleBrief(
 export function buildInfographicBriefFallback(
   input: InfographicInput,
   styleProfile?: StyleProfile,
+  layoutPlan?: LayoutPlan,
 ): InfographicBrief {
-  return assembleBrief(input, deterministicCopy(input), styleProfile);
+  return assembleBrief(input, deterministicCopy(input), styleProfile, layoutPlan);
 }
 
 /** Rebuild the overlay plan after the user edits headline/blocks in the UI. */
@@ -125,6 +141,7 @@ export function rebuildBrief(
   input: InfographicInput,
   copy: BriefCopy,
   styleProfile?: StyleProfile,
+  layoutPlan?: LayoutPlan,
 ): InfographicBrief {
-  return assembleBrief(input, copy, styleProfile);
+  return assembleBrief(input, copy, styleProfile, layoutPlan);
 }

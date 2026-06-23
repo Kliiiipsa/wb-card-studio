@@ -88,7 +88,9 @@ export const api = {
       post<InfographicBrief>("/api/ai/infographic/brief", { ...input, styleProfile }),
     generate: (args: {
       brief: InfographicBrief;
-      referenceImage?: string;
+      productImage?: string;
+      styleReferenceImage?: string;
+      productName?: string;
       aspectRatio?: "3:4" | "4:5";
     }) => post<InfographicGenerateResult>("/api/ai/infographic/generate", args),
   },

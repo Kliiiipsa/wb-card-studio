@@ -60,6 +60,58 @@ const overlayPlanSchema = z.object({
   elements: z.array(z.record(z.any())),
 });
 
+/* --------------------------- dynamic layout plan --------------------------- */
+
+const boxZ = z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() });
+const pointZ = z.object({ x: z.number(), y: z.number() });
+const alignZ = z.enum(["left", "center", "right"]);
+
+const textBlockZ = z.object({
+  box: boxZ,
+  align: alignZ.default("left"),
+  fontScale: z.number().default(0.05),
+  maxLines: z.number().int().default(2),
+  plate: z.boolean().default(false),
+});
+
+const benefitZ = z.object({
+  index: z.number().int(),
+  box: boxZ,
+  align: alignZ.default("left"),
+  fontScale: z.number().default(0.028),
+  plate: z.boolean().default(true),
+  icon: z.boolean().default(true),
+});
+
+const calloutZ = z.object({
+  index: z.number().int().default(0),
+  anchor: pointZ,
+  label: boxZ,
+  bend: pointZ.optional(),
+  align: alignZ.default("left"),
+  fontScale: z.number().default(0.024),
+});
+
+export const layoutPlanSchema = z
+  .object({
+    version: z.literal(1).default(1),
+    mode: z.enum(["light", "dark"]).default("light"),
+    product: boxZ.default({ x: 0.18, y: 0.18, w: 0.64, h: 0.62 }),
+    freeZones: z.array(boxZ).default([]),
+    safeMargins: z
+      .object({ top: z.number(), bottom: z.number(), left: z.number(), right: z.number() })
+      .default({ top: 0.04, bottom: 0.04, left: 0.05, right: 0.05 }),
+    headline: textBlockZ.extend({
+      side: z.enum(["top", "bottom", "left", "right", "center"]).default("top"),
+    }),
+    subheadline: textBlockZ.optional(),
+    benefits: z.array(benefitZ).default([]),
+    callouts: z.array(calloutZ).default([]),
+    source: z.enum(["vision", "fallback"]).default("vision"),
+    notes: z.string().optional(),
+  })
+  .passthrough();
+
 export const infographicBriefSchema = z.object({
   id: z.string(),
   type: z.string(),
@@ -73,11 +125,16 @@ export const infographicBriefSchema = z.object({
   imagePrompt: z.string().min(1),
   negativePrompt: z.string(),
   overlayPlan: overlayPlanSchema,
+  layoutPlan: layoutPlanSchema.optional(),
   warnings: z.array(z.string()).default([]),
 });
 
 export const infographicGenerateSchema = z.object({
   brief: infographicBriefSchema,
-  referenceImage: z.string().optional(),
+  /** user's product photo */
+  productImage: z.string().optional(),
+  /** style reference image (drives the look) */
+  styleReferenceImage: z.string().optional(),
+  productName: z.string().max(200).optional(),
   aspectRatio: z.enum(["3:4", "4:5"]).optional(),
 });

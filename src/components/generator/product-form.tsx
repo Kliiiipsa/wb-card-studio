@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
  * cleaned array. Without this, filtering empties on every keystroke made it
  * impossible to start a new line.
  */
-function ListField({
+export function ListField({
   id,
   label,
   placeholder,

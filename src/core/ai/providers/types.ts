@@ -53,6 +53,12 @@ export interface I2IRequest extends T2IRequest {
   referenceImageDataUrl: string;
   /** 0..1 — lower preserves the source product more strongly */
   strength?: number;
+  /**
+   * Additional reference images (after `referenceImageDataUrl`). Only providers
+   * with multi-image input use them (gpt-image-2); single-image models ignore
+   * them. Used to pass a STYLE reference alongside the product photo.
+   */
+  extraImageUrls?: string[];
 }
 
 export interface GeneratedImage {

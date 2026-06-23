@@ -12,18 +12,18 @@ import {
 } from "@/components/ui/select";
 import { EXPORT_PRESETS, type ExportFormat } from "@/core/domain/export-presets";
 import { exportInfographicCard } from "@/core/infographics/render-card";
-import { exportCard } from "@/core/rendering/export";
 import type { InfographicBrief } from "@/core/infographics/types";
 import { toast } from "@/components/ui/toaster";
 
 export function InfographicExportPanel({
   baseSrc,
   brief,
-  mode = "ai",
+  textBaked,
 }: {
   baseSrc: string;
   brief: InfographicBrief;
-  mode?: "ai" | "overlay";
+  /** text already rendered into the base — export the image without overlay */
+  textBaked?: boolean;
 }) {
   const [presetId, setPresetId] = React.useState(EXPORT_PRESETS[0].id);
   const [format, setFormat] = React.useState<ExportFormat>("png");
@@ -34,12 +34,10 @@ export function InfographicExportPanel({
     setBusy(true);
     try {
       for (const p of presets) {
-        // AI mode = the model already baked everything in → export image as-is.
-        // overlay mode (mock/fallback) = compose canvas overlay.
+        // base image + canvas text overlay (real font, correct Cyrillic), or the
+        // baked image as-is when the model rendered the text itself (gpt-image)
         // eslint-disable-next-line no-await-in-loop
-        if (mode === "overlay") await exportInfographicCard(baseSrc, p, format, brief);
-        // eslint-disable-next-line no-await-in-loop
-        else await exportCard(baseSrc, p, format, { baseName: "wb-infographic" });
+        await exportInfographicCard(baseSrc, p, format, brief, undefined, textBaked);
       }
       toast.success(presets.length > 1 ? "Все размеры скачаны" : "Карточка скачана");
     } catch (e) {

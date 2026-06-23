@@ -17,9 +17,12 @@ import type { StyleProfile } from "@/core/infographics/types";
 export function InfographicReferencePicker({
   value,
   onChange,
+  onReferenceImageChange,
 }: {
   value: StyleProfile | null;
   onChange: (profile: StyleProfile | null) => void;
+  /** the raw reference image (data URL) used as the i2i style anchor */
+  onReferenceImageChange?: (image: string | null) => void;
 }) {
   const [refImage, setRefImage] = React.useState<string | null>(null);
   const [extracting, setExtracting] = React.useState(false);
@@ -33,6 +36,7 @@ export function InfographicReferencePicker({
     try {
       const profile = await api.infographic.extractStyle(refImage);
       onChange(profile);
+      onReferenceImageChange?.(refImage);
       toast.success("Стиль референса извлечён");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Не удалось извлечь стиль");
@@ -56,7 +60,10 @@ export function InfographicReferencePicker({
               <button
                 key={item.id}
                 type="button"
-                onClick={() => onChange(getLibraryStyle(item.id))}
+                onClick={() => {
+                  onChange(getLibraryStyle(item.id));
+                  onReferenceImageChange?.(null);
+                }}
                 className={cn(
                   "overflow-hidden rounded-lg border text-left transition-all",
                   active ? "ring-2 ring-primary ring-offset-1" : "hover:border-primary/40",

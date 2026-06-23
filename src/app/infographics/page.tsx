@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ProductForm } from "@/components/generator/product-form";
+import { ListField } from "@/components/generator/product-form";
 import { ImageUploader } from "@/components/media/image-uploader";
 import { EmptyState } from "@/components/project/empty-state";
 import { InfographicCanvas } from "@/components/infographics/infographic-canvas";
@@ -47,24 +48,21 @@ export default function InfographicsPage() {
   const [styleProfile, setStyleProfile] = React.useState<StyleProfile | null>(
     DEFAULT_STYLE_PROFILE,
   );
+  // raw style-reference image (data URL) — the i2i style anchor, separate from
+  // the product photo (`reference`)
+  const [styleReferenceImage, setStyleReferenceImage] = React.useState<string | null>(null);
 
   const [brief, setBrief] = React.useState<InfographicBrief | null>(null);
   const [baseImageUrl, setBaseImageUrl] = React.useState<string | null>(null);
+  // true when the model baked the text into the image (gpt-image) — skip overlay
+  const [textBaked, setTextBaked] = React.useState(false);
 
   const [autofilling, setAutofilling] = React.useState(false);
   const [briefing, setBriefing] = React.useState(false);
   const [generating, setGenerating] = React.useState(false);
-
-  // AI mode shows the model-rendered infographic directly; mock falls back to
-  // the canvas overlay so the demo still produces something usable.
-  const [imageProvider, setImageProvider] = React.useState<string>("mock");
-  React.useEffect(() => {
-    api
-      .status()
-      .then((s) => setImageProvider(s.image))
-      .catch(() => {});
-  }, []);
-  const resultMode: "ai" | "overlay" = imageProvider === "mock" ? "overlay" : "ai";
+  // synchronous in-flight guard: `generating` state updates async, so two quick
+  // clicks (or a double event) could both pass and queue duplicate gpt-image jobs
+  const generatingRef = React.useRef(false);
 
   const buildInput = (): InfographicInput => ({
     productName: product.name,
@@ -126,27 +124,33 @@ export default function InfographicsPage() {
     }
   };
 
-  // edits rebuild the overlay plan instantly on the client (no tokens)
+  // edits rebuild the overlay instantly on the client (no tokens); the existing
+  // per-photo layout plan is carried through so geometry stays consistent.
   const handleBriefEdit = (edit: BriefEdit) => {
-    setBrief(assembleBrief(buildInput(), edit, styleProfile ?? undefined));
+    setBrief(assembleBrief(buildInput(), edit, styleProfile ?? undefined, brief?.layoutPlan));
   };
 
   const handleGenerate = async () => {
-    if (!brief) return;
+    if (!brief || generatingRef.current) return;
+    generatingRef.current = true;
     setGenerating(true);
     try {
       const r = await api.infographic.generate({
         brief,
-        referenceImage: reference ?? undefined,
+        productImage: reference ?? undefined,
+        styleReferenceImage: styleReferenceImage ?? undefined,
+        productName: product.name || undefined,
         aspectRatio: "3:4",
       });
       setBaseImageUrl(r.baseImageUrl);
       setBrief(r.brief);
+      setTextBaked(r.textBaked);
       toast.success("Изображение готово");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка генерации");
     } finally {
       setGenerating(false);
+      generatingRef.current = false;
     }
   };
 
@@ -179,18 +183,68 @@ export default function InfographicsPage() {
               Заполнить по фото
             </Button>
 
-            <ProductForm product={product} onChange={(p) => setProduct((s) => ({ ...s, ...p }))} />
-
             <div className="space-y-1.5">
-              <Label htmlFor="note">Дополнительный комментарий</Label>
-              <Textarea
-                id="note"
-                value={userNote}
-                onChange={(e) => setUserNote(e.target.value)}
-                placeholder="Необязательно"
-                className="min-h-[56px]"
+              <Label htmlFor="name">Название товара</Label>
+              <Input
+                id="name"
+                value={product.name}
+                onChange={(e) => setProduct((s) => ({ ...s, name: e.target.value }))}
+                placeholder="Например: Женский костюм"
               />
             </div>
+
+            <ListField
+              id="benefits"
+              label="Преимущества (по одному на строку)"
+              placeholder={"Не мнётся\nДышащая ткань\nСидит по фигуре"}
+              value={product.benefits}
+              onChange={(benefits) => setProduct((s) => ({ ...s, benefits }))}
+            />
+
+            {/* Secondary fields only nudge the AI's tone — hidden by default to
+                keep the form simple; the data path is unchanged when used. */}
+            <details className="group rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+              <summary className="cursor-pointer list-none text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+                Дополнительно (необязательно)
+              </summary>
+              <div className="mt-3 space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="category">Категория</Label>
+                  <Input
+                    id="category"
+                    value={product.category}
+                    onChange={(e) => setProduct((s) => ({ ...s, category: e.target.value }))}
+                    placeholder="Одежда"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="audience">Целевая аудитория</Label>
+                  <Input
+                    id="audience"
+                    value={product.audience}
+                    onChange={(e) => setProduct((s) => ({ ...s, audience: e.target.value }))}
+                    placeholder="Женщины 25–40"
+                  />
+                </div>
+                <ListField
+                  id="pains"
+                  label="Боли клиента (по одной на строку)"
+                  placeholder={"Костюмы быстро мнутся\nТрудно подобрать размер"}
+                  value={product.pains}
+                  onChange={(pains) => setProduct((s) => ({ ...s, pains }))}
+                />
+                <div className="space-y-1.5">
+                  <Label htmlFor="note">Дополнительный комментарий</Label>
+                  <Textarea
+                    id="note"
+                    value={userNote}
+                    onChange={(e) => setUserNote(e.target.value)}
+                    placeholder="Необязательно"
+                    className="min-h-[56px]"
+                  />
+                </div>
+              </div>
+            </details>
           </CardContent>
         </Card>
 
@@ -236,7 +290,11 @@ export default function InfographicsPage() {
 
             <div className="space-y-2">
               <Label className="text-xs">Стиль референса</Label>
-              <InfographicReferencePicker value={styleProfile} onChange={setStyleProfile} />
+              <InfographicReferencePicker
+                value={styleProfile}
+                onChange={setStyleProfile}
+                onReferenceImageChange={setStyleReferenceImage}
+              />
             </div>
 
             <Button onClick={handleBrief} disabled={briefing} variant="gradient" className="w-full">
@@ -292,7 +350,7 @@ export default function InfographicsPage() {
                 Генерируем основу…
               </div>
             ) : baseImageUrl && brief ? (
-              <InfographicCanvas baseSrc={baseImageUrl} brief={brief} mode={resultMode} />
+              <InfographicCanvas baseSrc={baseImageUrl} brief={brief} textBaked={textBaked} />
             ) : (
               <EmptyState
                 icon={<ImagePlus className="h-6 w-6" />}
@@ -302,7 +360,7 @@ export default function InfographicsPage() {
             )}
 
             {baseImageUrl && brief && (
-              <InfographicExportPanel baseSrc={baseImageUrl} brief={brief} mode={resultMode} />
+              <InfographicExportPanel baseSrc={baseImageUrl} brief={brief} textBaked={textBaked} />
             )}
           </CardContent>
         </Card>

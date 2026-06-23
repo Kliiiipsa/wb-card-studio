@@ -1,4 +1,5 @@
 import type { RenderElement } from "@/core/rendering/types";
+import type { LayoutPlan } from "./layout-plan";
 
 export type InfographicType =
   | "benefits"
@@ -59,6 +60,8 @@ export type InfographicBrief = {
   imagePrompt: string;
   negativePrompt: string;
   overlayPlan: InfographicOverlayPlan;
+  /** per-photo dynamic layout (vision-derived or deterministic fallback) */
+  layoutPlan?: LayoutPlan;
   /** style transferred from a reference (library preset or uploaded reference) */
   styleProfile?: StyleProfile;
   warnings: string[];
@@ -112,6 +115,9 @@ export type InfographicGenerateResult = {
   baseImageUrl: string;
   overlayPlan: InfographicOverlayPlan;
   brief: InfographicBrief;
+  /** true when the model already rendered the text into the base (gpt-image) —
+   *  the canvas overlay is then skipped so we don't double the text. */
+  textBaked: boolean;
 };
 
 export const INFOGRAPHIC_TYPES: {

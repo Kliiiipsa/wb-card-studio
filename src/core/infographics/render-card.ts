@@ -3,7 +3,8 @@ import type { ExportPreset, ExportFormat } from "@/core/domain/export-presets";
 import { downloadBlob } from "@/core/rendering/export";
 import type { InfographicBrief } from "./types";
 import { analyzeComposition } from "./composition";
-import { buildTokens, hexToRgba, type BackgroundMode } from "./design-tokens";
+import { buildTokens, hexToRgba } from "./design-tokens";
+import { benefitLayoutFor, fallbackLayoutPlan, type NormBox } from "./layout-plan";
 
 const REF_W = 900;
 
@@ -18,6 +19,17 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error("Не удалось загрузить изображение."));
     img.src = resolved;
   });
+}
+
+/** Wait for web fonts so Cyrillic text is measured/drawn with the right metrics. */
+async function fontsReady(): Promise<void> {
+  try {
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+  } catch {
+    /* fonts API unavailable — proceed with system metrics */
+  }
 }
 
 function roundRect(
@@ -68,40 +80,14 @@ function wrapLines(
   return lines.slice(0, maxLines);
 }
 
-/** Scrim gradient at a band for legibility, coloured for the band's mode. */
-function drawBandScrim(
-  ctx: CanvasRenderingContext2D,
-  band: "top" | "bottom",
-  mode: BackgroundMode,
-  width: number,
-  height: number,
-) {
-  const c = mode === "light" ? "255,255,255" : "0,0,0";
-  const a = mode === "light" ? 0.34 : 0.46;
-  const h = height * 0.42;
-  const grad =
-    band === "top"
-      ? ctx.createLinearGradient(0, 0, 0, h)
-      : ctx.createLinearGradient(0, height, 0, height - h);
-  grad.addColorStop(0, `rgba(${c},${a})`);
-  grad.addColorStop(1, `rgba(${c},0)`);
-  ctx.fillStyle = grad;
-  if (band === "top") ctx.fillRect(0, 0, width, h);
-  else ctx.fillRect(0, height - h, width, h);
-}
-
-function modeFor(lum: number): BackgroundMode {
-  return lum > 0.55 ? "light" : "dark";
-}
-
-/** Render the full cohesive infographic into a canvas. */
+/** Render the full cohesive infographic into a canvas, driven by the layout plan. */
 async function renderToCanvas(
   baseSrc: string,
   width: number,
   height: number,
   brief: InfographicBrief,
 ): Promise<HTMLCanvasElement> {
-  const img = await loadImage(baseSrc);
+  const [img] = await Promise.all([loadImage(baseSrc), fontsReady()]);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -119,134 +105,168 @@ async function renderToCanvas(
   const comp = analyzeComposition(img);
   const s = width / REF_W;
 
-  // a transferred style (library or reference) overrides accent, card shape,
-  // headline position and density; band placement + contrast still adapt to the
-  // actual product photo for legibility.
+  // Per-photo layout plan decides WHERE everything goes; the transferred style
+  // (library/reference) decides accent, card shape and radius. Colours/contrast
+  // follow the plan's mode (background brightness of the text zone).
   const profile = brief.styleProfile;
+  const plan =
+    brief.layoutPlan ??
+    fallbackLayoutPlan({
+      benefitCount: brief.blocks.length,
+      hasSubheadline: !!brief.subheadline,
+      headlinePosition: profile?.headlinePosition,
+      mode: profile?.mode,
+    });
+
   const accentOverride = profile?.palette.accent ?? comp.accent;
-  const headlineBand = profile?.headlinePosition ?? comp.headlineBand;
-  const benefitsBand: "top" | "bottom" = headlineBand === "top" ? "bottom" : "top";
-  const headlineMode = modeFor(headlineBand === "top" ? comp.topLuminance : comp.bottomLuminance);
-  const benefitsMode = modeFor(benefitsBand === "top" ? comp.topLuminance : comp.bottomLuminance);
-  const tHead = buildTokens(brief.style as never, headlineMode, accentOverride);
-  const tBen = buildTokens(brief.style as never, benefitsMode, accentOverride);
-  const cardRadius = profile?.radius ?? tBen.radius.card;
+  const mode = plan.mode;
+  const t = buildTokens(brief.style as never, mode, accentOverride);
+  const cardRadius = profile?.radius ?? t.radius.card;
   const cardKind = profile?.cardStyle ?? "integrated-soft";
 
-  drawBandScrim(ctx, headlineBand, headlineMode, width, height);
-  if (brief.blocks.length) drawBandScrim(ctx, benefitsBand, benefitsMode, width, height);
+  const px = (b: NormBox) => ({ x: b.x * width, y: b.y * height, w: b.w * width, h: b.h * height });
+  const fs = (scale: number) => Math.round(scale * height);
+  const alignX = (x: number, w: number, align: "left" | "center" | "right") =>
+    align === "center" ? x + w / 2 : align === "right" ? x + w : x;
 
-  const pad = tHead.spacing.pagePadding * s;
-  const maxTextW = width - pad * 2;
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
 
+  const drawPlate = (x: number, y: number, w: number, h: number, r: number) => {
+    ctx.save();
+    ctx.fillStyle = mode === "light" ? "rgba(255,255,255,0.6)" : "rgba(10,12,16,0.5)";
+    ctx.shadowColor = t.shadow.soft;
+    ctx.shadowBlur = 18 * s;
+    roundRect(ctx, x, y, w, h, r);
+    ctx.fill();
+    ctx.restore();
+  };
+
   /* ---------------- headline + subheadline ---------------- */
-  const hSize = tHead.typography.headlineSize * s;
-  ctx.font = `${tHead.typography.fontWeight} ${hSize}px ${tHead.typography.fontFamily}`;
-  const hLines = wrapLines(ctx, brief.headline, maxTextW, 2);
-  const hLineH = hSize * 1.12;
-  const subSize = tHead.typography.subheadlineSize * s;
-  const subLineH = brief.subheadline ? subSize * 1.3 : 0;
+  const hb = px(plan.headline.box);
+  if (plan.headline.plate) {
+    drawPlate(hb.x - 14 * s, hb.y - 12 * s, hb.w + 28 * s, hb.h + 24 * s, 18 * s);
+  }
+
   const accentLineH = 6 * s;
-  const headBlockH =
-    hLines.length * hLineH + (brief.subheadline ? subLineH + 8 * s : 0) + accentLineH + 14 * s;
-
-  let hy = headlineBand === "top" ? pad : height - pad - headBlockH;
-
-  // accent underline above headline
-  ctx.fillStyle = tHead.palette.accent;
-  roundRect(ctx, pad, hy, 64 * s, accentLineH, accentLineH / 2);
+  ctx.fillStyle = t.palette.accent;
+  roundRect(ctx, hb.x, Math.max(2 * s, hb.y - 16 * s), 64 * s, accentLineH, accentLineH / 2);
   ctx.fill();
-  hy += accentLineH + 14 * s;
 
-  ctx.font = `${tHead.typography.fontWeight} ${hSize}px ${tHead.typography.fontFamily}`;
-  ctx.fillStyle = tHead.palette.textPrimary;
+  const hSize = fs(plan.headline.fontScale);
+  ctx.font = `${t.typography.fontWeight} ${hSize}px ${t.typography.fontFamily}`;
+  const hLines = wrapLines(ctx, brief.headline, hb.w, plan.headline.maxLines);
+  const hLineH = hSize * 1.12;
+  ctx.textAlign = plan.headline.align;
+  ctx.fillStyle = t.palette.textPrimary;
   ctx.save();
-  ctx.shadowColor = headlineMode === "light" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.45)";
+  ctx.shadowColor = mode === "light" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.45)";
   ctx.shadowBlur = 8 * s;
+  let hy = hb.y;
+  const hx = alignX(hb.x, hb.w, plan.headline.align);
   for (const line of hLines) {
-    ctx.fillText(line, pad, hy);
+    ctx.fillText(line, hx, hy);
     hy += hLineH;
   }
   ctx.restore();
+  ctx.textAlign = "left";
 
-  if (brief.subheadline) {
-    hy += 8 * s;
-    ctx.font = `500 ${subSize}px ${tHead.typography.fontFamily}`;
-    ctx.fillStyle = tHead.palette.textSecondary;
-    const subLine = wrapLines(ctx, brief.subheadline, maxTextW, 1)[0] ?? "";
-    ctx.fillText(subLine, pad, hy);
+  if (brief.subheadline && plan.subheadline) {
+    const sb = px(plan.subheadline.box);
+    const subSize = fs(plan.subheadline.fontScale);
+    ctx.font = `500 ${subSize}px ${t.typography.fontFamily}`;
+    ctx.fillStyle = t.palette.textSecondary;
+    ctx.textAlign = plan.subheadline.align;
+    const subLine = wrapLines(ctx, brief.subheadline, sb.w, plan.subheadline.maxLines)[0] ?? "";
+    ctx.save();
+    ctx.shadowColor = mode === "light" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.4)";
+    ctx.shadowBlur = 6 * s;
+    ctx.fillText(subLine, alignX(sb.x, sb.w, plan.subheadline.align), sb.y);
+    ctx.restore();
+    ctx.textAlign = "left";
   }
 
-  /* ---------------- benefit cards (uniform grid) ---------------- */
-  const items = brief.blocks
-    .map((b) => b.title)
-    .filter(Boolean)
-    .slice(0, 5);
+  /* ---------------- benefit cards ---------------- */
+  const items = brief.blocks.map((b) => b.title).filter(Boolean);
   if (items.length) {
+    const boxes = benefitLayoutFor(plan, items.length);
     const editorial = cardKind === "premium-editorial";
-    const cardH = (editorial ? 78 : 92) * s;
-    const gap = tBen.spacing.blockGap * s;
-    const cardW = width - pad * 2;
-    const totalH = items.length * cardH + (items.length - 1) * gap;
-    let cy = benefitsBand === "bottom" ? height - pad - totalH : pad;
+    const padX = t.spacing.blockPadding * s;
 
-    const titleSize = tBen.typography.blockTitleSize * s;
-    const padX = tBen.spacing.blockPadding * s;
-    for (const title of items) {
-      const dotY = cy + cardH / 2;
+    for (let i = 0; i < items.length; i++) {
+      const title = items[i];
+      const slot = boxes[i];
+      const bx = px(slot.box);
+      const midY = bx.y + bx.h / 2;
+      const titleSize = fs(slot.fontScale);
 
       if (editorial) {
         // editorial: no plate — a thin accent bar + text (premium, airy)
-        ctx.fillStyle = tBen.palette.accent;
-        roundRect(ctx, pad, dotY - 18 * s, 5 * s, 36 * s, 3 * s);
+        ctx.fillStyle = t.palette.accent;
+        roundRect(ctx, bx.x, midY - 18 * s, 5 * s, 36 * s, 3 * s);
         ctx.fill();
       } else {
         // frosted/clean card surface + soft shadow
         ctx.save();
-        ctx.shadowColor = tBen.shadow.medium;
+        ctx.shadowColor = t.shadow.medium;
         ctx.shadowBlur = 22 * s;
         ctx.shadowOffsetY = 6 * s;
-        ctx.fillStyle = tBen.palette.surface;
-        roundRect(ctx, pad, cy, cardW, cardH, cardRadius * s);
+        ctx.fillStyle = t.palette.surface;
+        roundRect(ctx, bx.x, bx.y, bx.w, bx.h, cardRadius * s);
         ctx.fill();
-        if (cardKind === "marketplace-clean") {
-          // a touch more solidity for the clean look
-          ctx.fillStyle = tBen.palette.surface;
-          ctx.fill();
-        }
         ctx.restore();
 
-        // accent chip + dot
-        ctx.fillStyle = hexToRgba(tBen.palette.accent, 0.18);
-        roundRect(ctx, pad + padX - 4 * s, dotY - 22 * s, 44 * s, 44 * s, 12 * s);
-        ctx.fill();
-        ctx.fillStyle = tBen.palette.accent;
-        ctx.beginPath();
-        ctx.arc(pad + padX + 18 * s, dotY, 9 * s, 0, Math.PI * 2);
-        ctx.fill();
+        if (slot.icon) {
+          // accent chip + dot
+          ctx.fillStyle = hexToRgba(t.palette.accent, 0.18);
+          roundRect(ctx, bx.x + padX - 4 * s, midY - 22 * s, 44 * s, 44 * s, 12 * s);
+          ctx.fill();
+          ctx.fillStyle = t.palette.accent;
+          ctx.beginPath();
+          ctx.arc(bx.x + padX + 18 * s, midY, 9 * s, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
       // title
-      ctx.font = `600 ${titleSize}px ${tBen.typography.fontFamily}`;
-      ctx.fillStyle = tBen.palette.textPrimary;
+      ctx.font = `600 ${titleSize}px ${t.typography.fontFamily}`;
+      ctx.fillStyle = t.palette.textPrimary;
       ctx.textBaseline = "middle";
-      const textX = editorial ? pad + 22 * s : pad + padX + 64 * s;
-      const maxW = cardW - (textX - pad) - padX;
+      const hasIcon = !editorial && slot.icon;
+      const textX = editorial ? bx.x + 22 * s : bx.x + padX + (hasIcon ? 64 * s : 0);
+      const maxW = Math.max(40 * s, bx.x + bx.w - textX - padX * 0.5);
       const line = wrapLines(ctx, title, maxW, 2);
       if (line.length === 1) {
-        ctx.fillText(line[0], textX, dotY);
+        ctx.fillText(line[0], textX, midY);
       } else {
-        ctx.fillText(line[0], textX, dotY - titleSize * 0.62);
-        ctx.fillText(line[1], textX, dotY + titleSize * 0.62);
+        ctx.fillText(line[0], textX, midY - titleSize * 0.62);
+        ctx.fillText(line[1], textX, midY + titleSize * 0.62);
       }
       ctx.textBaseline = "top";
-
-      cy += cardH + gap;
     }
   }
 
+  return canvas;
+}
+
+/** Draw just the base image (cover-fit) — used when the text is baked in. */
+async function renderBaseOnly(
+  baseSrc: string,
+  width: number,
+  height: number,
+): Promise<HTMLCanvasElement> {
+  const img = await loadImage(baseSrc);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas не поддерживается.");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  const scale = Math.max(width / img.width, height / img.height);
+  const iw = img.width * scale;
+  const ih = img.height * scale;
+  ctx.drawImage(img, (width - iw) / 2, (height - ih) / 2, iw, ih);
   return canvas;
 }
 
@@ -267,8 +287,11 @@ export async function exportInfographicCard(
   format: ExportFormat,
   brief: InfographicBrief,
   baseName = "wb-infographic",
+  skipOverlay = false,
 ) {
-  const canvas = await renderToCanvas(baseSrc, preset.width, preset.height, brief);
+  const canvas = skipOverlay
+    ? await renderBaseOnly(baseSrc, preset.width, preset.height)
+    : await renderToCanvas(baseSrc, preset.width, preset.height, brief);
   const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Не удалось создать файл."))),

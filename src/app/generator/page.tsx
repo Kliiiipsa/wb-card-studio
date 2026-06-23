@@ -7,6 +7,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -15,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ProductForm } from "@/components/generator/product-form";
+import { ListField } from "@/components/generator/product-form";
 import { GeneratedImageGrid } from "@/components/generator/generated-image-grid";
 import { LoadingGenerationState } from "@/components/generator/loading-generation-state";
 import { ExportPanel } from "@/components/generator/export-panel";
@@ -87,7 +88,57 @@ function GeneratorInner() {
             hint="Необязательно. С фото ИИ напишет промпт точнее (image-to-image)"
           />
 
-          <ProductForm product={s.product} onChange={(p) => s.setProduct(p)} />
+          <div className="space-y-1.5">
+            <Label htmlFor="name">Название товара</Label>
+            <Input
+              id="name"
+              value={s.product.name}
+              onChange={(e) => s.setProduct({ name: e.target.value })}
+              placeholder="Например: Мужской деловой костюм"
+            />
+          </div>
+
+          <ListField
+            id="benefits"
+            label="Преимущества (по одному на строку)"
+            placeholder={"Не мнётся\nДышащая ткань\nСидит по фигуре"}
+            value={s.product.benefits}
+            onChange={(benefits) => s.setProduct({ benefits })}
+          />
+
+          {/* Secondary fields only nudge the AI prompt — hidden by default. */}
+          <details className="group rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+            <summary className="cursor-pointer list-none text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+              Дополнительно (необязательно)
+            </summary>
+            <div className="mt-3 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="category">Категория</Label>
+                <Input
+                  id="category"
+                  value={s.product.category}
+                  onChange={(e) => s.setProduct({ category: e.target.value })}
+                  placeholder="Одежда"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="audience">Целевая аудитория</Label>
+                <Input
+                  id="audience"
+                  value={s.product.audience}
+                  onChange={(e) => s.setProduct({ audience: e.target.value })}
+                  placeholder="Мужчины 25–40, офис"
+                />
+              </div>
+              <ListField
+                id="pains"
+                label="Боли клиента (по одной на строку)"
+                placeholder={"Костюмы быстро мнутся\nТрудно подобрать размер"}
+                value={s.product.pains}
+                onChange={(pains) => s.setProduct({ pains })}
+              />
+            </div>
+          </details>
 
           <div className="space-y-1.5">
             <Label htmlFor="note">Дополнительное пожелание</Label>
